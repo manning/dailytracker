@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { users, metricDefinitions } from '../db/schema'
-import { STARTER_METRICS } from '../db/seed'
+import { STARTER_METRICS } from '../db/starterMetrics'
 
 export const authRouter = Router()
 
