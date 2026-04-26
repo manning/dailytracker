@@ -25,9 +25,10 @@ Each workspace has its own `package.json`. Run commands from within the relevant
 npm run dev          # start dev server with hot reload
 npm run build        # compile TypeScript
 npm run start        # run compiled output
-npm run db:migrate   # run Prisma migrations (npx prisma migrate dev)
-npm run db:studio    # open Prisma Studio to inspect data
-npm run db:generate  # regenerate Prisma client after schema changes
+npm run db:generate  # generate migration from schema changes
+npm run db:migrate   # apply migrations to the database
+npm run db:push      # push schema directly (local dev, no migration files)
+npm run db:studio    # open Drizzle Studio to inspect data
 npm test             # run tests
 npm run lint         # lint
 ```
@@ -65,7 +66,7 @@ The core design uses a flexible metric definition + entry pattern so users can c
 - `connector_id` and `source` fields are present from the start so Apple Health / other integrations are not a retrofit
 - New users get a starter set of common metrics: weight, sleep hours, mood (1–10), pain level (1–10), exercise
 
-The Prisma schema lives at `backend/prisma/schema.prisma`. After any schema change run `db:generate` to update the client, and `db:migrate` to apply to the database.
+The Drizzle schema lives at `backend/src/db/schema.ts`. After any schema change run `db:generate` to generate a migration, and `db:migrate` to apply it. Use `db:push` for fast iteration during local development (skips migration files).
 
 ### Shared Types
 TypeScript types shared between backend, web, and mobile live in `/shared` (or are exported from the backend and imported by clients). Do not duplicate type definitions across workspaces.
@@ -103,7 +104,7 @@ The backend will expose a `POST /api/v1/chat` endpoint for users to ask ad hoc q
 
 | Layer | Library | Purpose |
 |-------|---------|---------|
-| Backend ORM | Prisma | Schema, migrations, type-safe queries |
+| Backend ORM | Drizzle | Schema, migrations, type-safe queries |
 | Backend framework | Express | HTTP routing |
 | Web charts | Recharts | Time-series and correlation graphs |
 | Mobile/Web UI | React Native / React | Shared component patterns where possible |
