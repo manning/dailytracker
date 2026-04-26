@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DailyTracker is a personal health/habit tracking app. Users define their own metrics (weight, pain level, sleep, etc.) and log values daily. It has a React Native mobile app, a React web app with graphing, and a shared Node.js/TypeScript backend API backed by PostgreSQL.
+DailyTracker is a personal health/habit tracking app. See `PRD.md` for full product requirements and feature scope.
+
+Technical stack: Node.js/TypeScript backend, PostgreSQL on Railway, React web app, React Native + Expo mobile app.
 
 ## Monorepo Structure
 
@@ -53,9 +55,15 @@ The backend exposes a REST API consumed by both the web and mobile clients. All 
 ### Data Model
 The core design uses a flexible metric definition + entry pattern so users can create arbitrary metrics without schema changes:
 
-- **users** — account credentials and preferences
-- **metric_definitions** — user-defined metrics: `name`, `type` (number | scale | boolean | duration | categorical | text), `unit` (e.g. "lbs", "hours"), `color`, `order`
-- **metric_entries** — timestamped log entries: references `metric_definition_id`, stores `numeric_value` and/or `text_value`, timestamped to the day by default
+- **users** — account credentials and preferences; email/password auth
+- **metric_definitions** — user-defined metrics: `name`, `type` (number | scale | boolean | duration | categorical | text), `unit` (e.g. "lbs", "hours"), `color`, `order`, `allow_multiple_per_day` (bool), `connector_id` (nullable, for future external data sources), `archived_at` (nullable — soft delete, history is always preserved)
+- **metric_entries** — timestamped log entries: references `metric_definition_id`, stores `numeric_value` and/or `text_value`, full timestamp (date + time-of-day), `source` (`manual` | `connector`), `connector_ref` (nullable external ID for dedup)
+
+**Key data decisions:**
+- Entries store full timestamps — users can log at any time and backdate to previous days
+- Metrics are soft-deleted (archived) not hard-deleted — history is always preserved
+- `connector_id` and `source` fields are present from the start so Apple Health / other integrations are not a retrofit
+- New users get a starter set of common metrics: weight, sleep hours, mood (1–10), pain level (1–10), exercise
 
 The Prisma schema lives at `backend/prisma/schema.prisma`. After any schema change run `db:generate` to update the client, and `db:migrate` to apply to the database.
 
@@ -78,6 +86,18 @@ Railway injects `DATABASE_URL` automatically. For local development, copy `.env.
 - **Backend + PostgreSQL**: Railway — deploy by pushing to `main`; Railway runs `npm run build && npm run start`
 - **Web**: TBD (Railway static site or Vercel)
 - **Mobile**: Expo (development builds via EAS for distribution)
+
+## LLM Integration
+
+The backend will expose a `POST /api/v1/chat` endpoint for users to ask ad hoc questions about their data (e.g. "why might my pain be higher this week?"). The LLM has **read-only** access — it cannot log or modify entries.
+
+**Architecture rules:**
+- LLM provider is hidden behind an interface (`LLMProvider`) so the underlying model (Gemini, Claude Haiku, etc.) can be swapped via config without changing call sites
+- The LLM API key is server-side only — never sent to web or mobile clients
+- Context is built by fetching the user's metric definitions + last N days of entries; this same query is used for graphs, so no duplicate data-fetching logic
+- The endpoint is stubbed but unimplemented until the core data model and logging features are complete
+
+**Model choice is deferred** — do not implement a specific provider until explicitly decided.
 
 ## Key Libraries
 
