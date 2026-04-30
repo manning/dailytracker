@@ -11,7 +11,7 @@ Technical stack: Node.js/TypeScript backend, PostgreSQL on Railway, React web ap
 ## Monorepo Structure
 
 ```
-/backend    — Node.js + TypeScript REST API (Express + Prisma)
+/backend    — Node.js + TypeScript REST API (Express + Drizzle)
 /web        — React + TypeScript web app (Recharts for graphs)
 /mobile     — React Native + Expo app (iOS + Android)
 ```

@@ -11,12 +11,16 @@ metricsRouter.use(requireAuth)
 const metricTypeValues = ['NUMBER', 'SCALE', 'BOOLEAN', 'DURATION', 'CATEGORICAL', 'TEXT'] as const
 
 const metricSchema = z.object({
-  name:               z.string().min(1),
-  type:               z.enum(metricTypeValues),
-  unit:               z.string().optional(),
-  color:              z.string().optional(),
-  order:              z.number().int().optional(),
+  name:                z.string().min(1),
+  type:                z.enum(metricTypeValues),
+  unit:                z.string().optional(),
+  color:               z.string().optional(),
+  order:               z.number().int().optional(),
   allowMultiplePerDay: z.boolean().optional(),
+  scaleMin:            z.number().int().nullable().optional(),
+  scaleMax:            z.number().int().nullable().optional(),
+  defaultNumericValue: z.number().nullable().optional(),
+  defaultTextValue:    z.string().nullable().optional(),
 })
 
 // List all active metrics for the authenticated user
