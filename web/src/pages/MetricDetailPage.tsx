@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { api, type Metric, type Entry } from '../lib/api'
 import LogEntryModal from '../components/LogEntryModal'
+import { formatDuration, naturalUnitFromMetricUnit } from '../lib/duration'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -131,7 +132,9 @@ export default function MetricDetailPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       {entry.numericValue !== null
-                        ? `${entry.numericValue}${metric.unit ? ' ' + metric.unit : ''}`
+                        ? metric.type === 'DURATION'
+                          ? formatDuration(entry.numericValue, naturalUnitFromMetricUnit(metric.unit))
+                          : `${entry.numericValue}${metric.unit ? ' ' + metric.unit : ''}`
                         : entry.textValue}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">

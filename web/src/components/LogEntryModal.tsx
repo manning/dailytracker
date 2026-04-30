@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react'
 import type { Metric } from '../lib/api'
+import { parseDuration, formatDuration, naturalUnitFromMetricUnit } from '../lib/duration'
 
 interface Props {
   metric: Metric
@@ -7,8 +8,21 @@ interface Props {
   onClose: () => void
 }
 
+function initialValueFor(metric: Metric): string {
+  if (metric.type === 'DURATION' && metric.defaultNumericValue !== null) {
+    return formatDuration(metric.defaultNumericValue, naturalUnitFromMetricUnit(metric.unit))
+  }
+  if (metric.type === 'TEXT' || metric.type === 'CATEGORICAL') {
+    return metric.defaultTextValue ?? ''
+  }
+  if (metric.defaultNumericValue !== null) {
+    return String(metric.defaultNumericValue)
+  }
+  return ''
+}
+
 export default function LogEntryModal({ metric, onSave, onClose }: Props) {
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(() => initialValueFor(metric))
   const [date, setDate] = useState(new Date().toISOString().slice(0, 16))
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,9 +32,17 @@ export default function LogEntryModal({ metric, onSave, onClose }: Props) {
     setError('')
     setLoading(true)
     try {
-      const parsed = metric.type === 'TEXT' ? value : parseFloat(value)
-      if (metric.type !== 'TEXT' && isNaN(parsed as number)) {
-        throw new Error('Please enter a valid number')
+      let parsed: number | string
+      if (metric.type === 'TEXT' || metric.type === 'CATEGORICAL') {
+        parsed = value
+      } else if (metric.type === 'DURATION') {
+        const seconds = parseDuration(value, naturalUnitFromMetricUnit(metric.unit))
+        if (seconds === null) throw new Error('Could not parse duration. Try "5h 12m", "5:12", or "1.5h".')
+        parsed = seconds
+      } else {
+        const n = parseFloat(value)
+        if (isNaN(n)) throw new Error('Please enter a valid number')
+        parsed = n
       }
       await onSave(parsed, new Date(date).toISOString())
       onClose()
@@ -32,11 +54,16 @@ export default function LogEntryModal({ metric, onSave, onClose }: Props) {
   }
 
   const inputLabel = () => {
-    if (metric.type === 'BOOLEAN') return 'Value (1 = yes, 0 = no)'
-    if (metric.type === 'SCALE') return 'Scale (1–10)'
-    if (metric.type === 'TEXT') return 'Note'
+    if (metric.type === 'BOOLEAN')  return 'Value (1 = yes, 0 = no)'
+    if (metric.type === 'SCALE')    return 'Scale (1–10)'
+    if (metric.type === 'TEXT')     return 'Note'
+    if (metric.type === 'DURATION') return `Duration (e.g. 5h 12m, 5:12, 1.5h)${metric.unit ? ` — default unit: ${metric.unit}` : ''}`
     return `Value${metric.unit ? ` (${metric.unit})` : ''}`
   }
+
+  const isFreeText = metric.type === 'TEXT'
+  const isDuration = metric.type === 'DURATION'
+  const isCategorical = metric.type === 'CATEGORICAL'
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
@@ -45,12 +72,20 @@ export default function LogEntryModal({ metric, onSave, onClose }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{inputLabel()}</label>
-            {metric.type === 'TEXT' ? (
+            {isFreeText ? (
               <textarea
                 value={value}
                 onChange={e => setValue(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
+                required
+              />
+            ) : isDuration || isCategorical ? (
+              <input
+                type="text"
+                value={value}
+                onChange={e => setValue(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             ) : (

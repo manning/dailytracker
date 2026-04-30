@@ -8,6 +8,8 @@ export interface Metric {
   color: string | null
   order: number
   allowMultiplePerDay: boolean
+  defaultNumericValue: number | null
+  defaultTextValue: string | null
   archivedAt: string | null
 }
 

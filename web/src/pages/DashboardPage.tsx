@@ -1,8 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, type Metric, type Entry } from '../lib/api'
 import { clearAuth, getUser } from '../lib/auth'
 import LogEntryModal from '../components/LogEntryModal'
+import TagPicker from '../components/TagPicker'
+import { formatDuration, naturalUnitFromMetricUnit } from '../lib/duration'
+
+function displayValue(metric: Metric, entry: Entry): string | null {
+  if (entry.numericValue !== null) {
+    if (metric.type === 'DURATION') {
+      return formatDuration(entry.numericValue, naturalUnitFromMetricUnit(metric.unit))
+    }
+    return `${entry.numericValue}${metric.unit ? ' ' + metric.unit : ''}`
+  }
+  return entry.textValue
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -23,15 +35,19 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [])
 
+  const tags = useMemo(() => metrics.filter(m => m.type === 'BOOLEAN'), [metrics])
+  const nonTags = useMemo(() => metrics.filter(m => m.type !== 'BOOLEAN'), [metrics])
+
+  const tagsLoggedToday = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of todayEntries) {
+      if (e.numericValue === 1) set.add(e.metricDefId)
+    }
+    return set
+  }, [todayEntries])
+
   function isLoggedToday(metric: Metric) {
     return todayEntries.some(e => e.metricDefId === metric.id)
-  }
-
-  function todayValue(metric: Metric) {
-    const entry = todayEntries.find(e => e.metricDefId === metric.id)
-    if (!entry) return null
-    if (entry.numericValue !== null) return `${entry.numericValue}${metric.unit ? ' ' + metric.unit : ''}`
-    return entry.textValue
   }
 
   async function handleSave(metric: Metric, value: number | string, loggedAt: string) {
@@ -43,13 +59,30 @@ export default function DashboardPage() {
     setTodayEntries(prev => [...prev, entry])
   }
 
+  async function handleTagSave(newlySelected: Set<string>, newlyDeselected: Set<string>) {
+    const now = new Date().toISOString()
+    const created: Entry[] = []
+    for (const id of newlySelected) {
+      const e = await api.entries.create({ metricDefId: id, numericValue: 1, loggedAt: now })
+      created.push(e)
+    }
+    const toDelete = todayEntries.filter(e => newlyDeselected.has(e.metricDefId))
+    for (const e of toDelete) {
+      await api.entries.delete(e.id)
+    }
+    setTodayEntries(prev => [
+      ...prev.filter(e => !newlyDeselected.has(e.metricDefId)),
+      ...created,
+    ])
+  }
+
   function handleLogout() {
     clearAuth()
     navigate('/login')
   }
 
-  const logged = metrics.filter(m => isLoggedToday(m))
-  const remaining = metrics.filter(m => !isLoggedToday(m) || m.allowMultiplePerDay)
+  const loggedNonTags    = nonTags.filter(m => isLoggedToday(m))
+  const remainingNonTags = nonTags.filter(m => !isLoggedToday(m) || m.allowMultiplePerDay)
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">Loading…</div>
 
@@ -69,15 +102,24 @@ export default function DashboardPage() {
             {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </h2>
           <p className="text-sm text-gray-500">
-            {logged.length}/{metrics.length} metrics logged today
+            {loggedNonTags.length}/{nonTags.length} metrics logged today
+            {tags.length > 0 && ` · ${tagsLoggedToday.size} tag${tagsLoggedToday.size === 1 ? '' : 's'}`}
           </p>
         </div>
 
-        {remaining.length > 0 && (
+        {tags.length > 0 && (
+          <TagPicker
+            tags={tags}
+            initiallySelected={tagsLoggedToday}
+            onSave={handleTagSave}
+          />
+        )}
+
+        {remainingNonTags.length > 0 && (
           <section>
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">To log</h3>
             <div className="space-y-2">
-              {remaining.map(metric => (
+              {remainingNonTags.map(metric => (
                 <div key={metric.id} className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: metric.color ?? '#94a3b8' }} />
@@ -98,22 +140,25 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {logged.length > 0 && (
+        {loggedNonTags.length > 0 && (
           <section>
             <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Logged today</h3>
             <div className="space-y-2">
-              {logged.map(metric => (
-                <Link key={metric.id} to={`/metrics/${metric.id}`} className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between hover:border-blue-300 transition-colors block">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: metric.color ?? '#94a3b8' }} />
-                    <p className="text-sm font-medium text-gray-900">{metric.name}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-900">{todayValue(metric)}</span>
-                    <span className="text-gray-300">›</span>
-                  </div>
-                </Link>
-              ))}
+              {loggedNonTags.map(metric => {
+                const entry = todayEntries.find(e => e.metricDefId === metric.id)
+                return (
+                  <Link key={metric.id} to={`/metrics/${metric.id}`} className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between hover:border-blue-300 transition-colors block">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: metric.color ?? '#94a3b8' }} />
+                      <p className="text-sm font-medium text-gray-900">{metric.name}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-900">{entry ? displayValue(metric, entry) : ''}</span>
+                      <span className="text-gray-300">›</span>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}
