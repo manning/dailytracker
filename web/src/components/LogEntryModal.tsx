@@ -55,7 +55,11 @@ export default function LogEntryModal({ metric, onSave, onClose }: Props) {
 
   const inputLabel = () => {
     if (metric.type === 'BOOLEAN')  return 'Value (1 = yes, 0 = no)'
-    if (metric.type === 'SCALE')    return 'Scale (1–10)'
+    if (metric.type === 'SCALE') {
+      const lo = metric.scaleMin ?? 1
+      const hi = metric.scaleMax ?? 10
+      return `Scale (${lo}–${hi})`
+    }
     if (metric.type === 'TEXT')     return 'Note'
     if (metric.type === 'DURATION') return `Duration (e.g. 5h 12m, 5:12, 1.5h)${metric.unit ? ` — default unit: ${metric.unit}` : ''}`
     return `Value${metric.unit ? ` (${metric.unit})` : ''}`
@@ -92,6 +96,8 @@ export default function LogEntryModal({ metric, onSave, onClose }: Props) {
               <input
                 type="number"
                 step="any"
+                min={metric.type === 'SCALE' ? (metric.scaleMin ?? 1) : undefined}
+                max={metric.type === 'SCALE' ? (metric.scaleMax ?? 10) : undefined}
                 value={value}
                 onChange={e => setValue(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
