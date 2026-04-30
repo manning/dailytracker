@@ -59,6 +59,8 @@ export default function MetricDetailPage() {
 
   const color = metric.color ?? '#3b82f6'
   const useBar = metric.type === 'BOOLEAN'
+  const yDomain: [number, number] | undefined =
+    metric.type === 'SCALE' ? [metric.scaleMin ?? 0, metric.scaleMax ?? 10] : undefined
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -100,7 +102,7 @@ export default function MetricDetailPage() {
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={yDomain} />
                   <Tooltip />
                   <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -108,7 +110,7 @@ export default function MetricDetailPage() {
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={yDomain} />
                   <Tooltip />
                   <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
