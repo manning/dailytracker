@@ -4,6 +4,7 @@ import { authRouter } from './routes/auth'
 import { metricsRouter } from './routes/metrics'
 import { entriesRouter } from './routes/entries'
 import { chatRouter } from './routes/chat'
+import { csvRouter } from './routes/csv'
 
 export const app = express()
 
@@ -18,6 +19,7 @@ app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/metrics', metricsRouter)
 app.use('/api/v1/entries', entriesRouter)
 app.use('/api/v1/chat', chatRouter)
+app.use('/api/v1/csv', csvRouter)
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' })

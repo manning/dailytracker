@@ -68,6 +68,24 @@ export const api = {
       request<Metric>(`/metrics/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     archive: (id: string) => request<void>(`/metrics/${id}`, { method: 'DELETE' }),
   },
+  csv: {
+    export: async (params?: { from?: string; to?: string }) => {
+      const token = localStorage.getItem('token')
+      const qs = new URLSearchParams(params as Record<string, string>).toString()
+      const res = await fetch(`${BASE}/csv${qs ? `?${qs}` : ''}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+      return res.blob()
+    },
+    import: async (csvText: string): Promise<{ created: number; skipped: number; warnings: string[] }> => {
+      return request('/csv', {
+        method: 'POST',
+        body: csvText,
+        headers: { 'Content-Type': 'text/csv' },
+      })
+    },
+  },
   entries: {
     list: (params?: { metricDefId?: string; from?: string; to?: string }) => {
       const qs = new URLSearchParams(params as Record<string, string>).toString()
